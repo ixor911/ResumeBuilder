@@ -1,17 +1,31 @@
-from django.urls import path, include
-from .views import *
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
+from .views import (
+    CertificateItemViewSet,
+    EducationItemViewSet,
+    ExperienceItemViewSet,
+    LanguageItemViewSet,
+    LinkItemViewSet,
+    ProjectItemViewSet,
+    ResumeSectionViewSet,
+    ResumeViewSet,
+    SkillItemViewSet,
+    SummaryItemViewSet,
+)
+
+router = DefaultRouter()
+router.register("resumes", ResumeViewSet, basename="resume")
+router.register("sections", ResumeSectionViewSet, basename="section")
+router.register("summary-items", SummaryItemViewSet, basename="summary-item")
+router.register("experience-items", ExperienceItemViewSet, basename="experience-item")
+router.register("education-items", EducationItemViewSet, basename="education-item")
+router.register("project-items", ProjectItemViewSet, basename="project-item")
+router.register("skill-items", SkillItemViewSet, basename="skill-item")
+router.register("language-items", LanguageItemViewSet, basename="language-item")
+router.register("link-items", LinkItemViewSet, basename="link-item")
+router.register("certificate-items", CertificateItemViewSet, basename="certificate-item")
 
 urlpatterns = [
-    path('resume/', ResumeView.as_view(), name="Resume"),
-    path('resume/<int:pk>', ResumeView.as_view(), name="Resume"),
-
-    path('details/', DetailsView.as_view(), name="Details"),
-    path('details/<int:pk>', DetailsView.as_view(), name="Details"),
-
-    path('summary/', SummaryView.as_view(), name="Summary"),
-    path('summary/<int:pk>', SummaryView.as_view(), name="Summary"),
-
-    path('link/', LinkView.as_view(), name="Link"),
-    path('link/<int:pk>', LinkView.as_view(), name="Link"),
-
+    path("", include(router.urls)),
 ]
