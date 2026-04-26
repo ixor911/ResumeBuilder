@@ -31,31 +31,6 @@ from api.serializers import (
 )
 
 
-class PublicOrOwnedQuerysetMixin:
-    def public_or_owned_filter(self):
-        user = self.request.user
-        if user.is_staff:
-            return Q()
-        if user.is_authenticated:
-            return Q(section__resume__owner=user) | Q(
-                section__resume__is_public=True,
-                section__is_visible=True,
-                is_visible=True,
-            )
-        return Q(
-            section__resume__is_public=True,
-            section__is_visible=True,
-            is_visible=True,
-        )
-
-    def check_section_owner(self, section):
-        user = self.request.user
-        if not user.is_authenticated:
-            raise PermissionDenied("Authentication is required.")
-        if section.resume.owner != user and not user.is_staff:
-            raise PermissionDenied("You can edit only your own resume.")
-
-
 class ResumeViewSet(viewsets.ModelViewSet):
     lookup_field = "slug"
     permission_classes = [IsOwnerOrPublicReadOnly]
@@ -69,11 +44,39 @@ class ResumeViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.is_staff:
-            return queryset
-        if user.is_authenticated:
-            return queryset.filter(Q(is_public=True) | Q(owner=user))
+            filtered = queryset
+        elif user.is_authenticated:
+            filtered = queryset.filter(Q(is_public=True) | Q(owner=user))
+        else:
+            filtered = queryset.filter(is_public=True)
 
-        return queryset.filter(is_public=True)
+        return self.apply_list_filters(filtered)
+
+    def apply_list_filters(self, queryset):
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(slug__icontains=search)
+                | Q(profile__first_name__icontains=search)
+                | Q(profile__last_name__icontains=search)
+                | Q(profile__job_title__icontains=search)
+            )
+
+        featured = self.request.query_params.get("featured")
+        if featured is not None:
+            queryset = queryset.filter(
+                is_featured=featured.lower() in ["1", "true", "yes"]
+            )
+
+        mine = self.request.query_params.get("mine")
+        if mine and mine.lower() in ["1", "true", "yes"]:
+            user = self.request.user
+            if not user.is_authenticated:
+                return queryset.none()
+            queryset = queryset.filter(owner=user)
+
+        return queryset
 
     def get_permissions(self):
         if self.action == "create":
@@ -122,6 +125,38 @@ class ResumeSectionViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can edit only your own resume.")
         serializer.save()
 
+    def perform_update(self, serializer):
+        resume = serializer.validated_data.get("resume", serializer.instance.resume)
+        user = self.request.user
+        if resume.owner != user and not user.is_staff:
+            raise PermissionDenied("You can edit only your own resume.")
+        serializer.save()
+
+
+class PublicOrOwnedQuerysetMixin:
+    def public_or_owned_filter(self):
+        user = self.request.user
+        if user.is_staff:
+            return Q()
+        if user.is_authenticated:
+            return Q(section__resume__owner=user) | Q(
+                section__resume__is_public=True,
+                section__is_visible=True,
+                is_visible=True,
+            )
+        return Q(
+            section__resume__is_public=True,
+            section__is_visible=True,
+            is_visible=True,
+        )
+
+    def check_section_owner(self, section):
+        user = self.request.user
+        if not user.is_authenticated:
+            raise PermissionDenied("Authentication is required.")
+        if section.resume.owner != user and not user.is_staff:
+            raise PermissionDenied("You can edit only your own resume.")
+
 
 class SectionItemViewSet(PublicOrOwnedQuerysetMixin, viewsets.ModelViewSet):
     permission_classes = [IsOwnerOrPublicReadOnly]
@@ -140,6 +175,11 @@ class SectionItemViewSet(PublicOrOwnedQuerysetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         self.check_section_owner(serializer.validated_data["section"])
+        serializer.save()
+
+    def perform_update(self, serializer):
+        section = serializer.validated_data.get("section", serializer.instance.section)
+        self.check_section_owner(section)
         serializer.save()
 
 

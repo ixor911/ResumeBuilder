@@ -24,7 +24,11 @@ router.register("project-items", ProjectItemViewSet, basename="project-item")
 router.register("skill-items", SkillItemViewSet, basename="skill-item")
 router.register("language-items", LanguageItemViewSet, basename="language-item")
 router.register("link-items", LinkItemViewSet, basename="link-item")
-router.register("certificate-items", CertificateItemViewSet, basename="certificate-item")
+router.register(
+    "certificate-items",
+    CertificateItemViewSet,
+    basename="certificate-item",
+)
 
 urlpatterns = [
     path("", include(router.urls)),
