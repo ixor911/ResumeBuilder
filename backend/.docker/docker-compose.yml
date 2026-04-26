@@ -1,0 +1,49 @@
+name: resume-builder-backend
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile
+    container_name: resume-builder-backend
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ..:/app
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-django-insecure-resume-builder-docker-dev-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,backend}
+      DJANGO_CORS_ALLOWED_ORIGINS: ${DJANGO_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      DJANGO_AUTO_MIGRATE: ${DJANGO_AUTO_MIGRATE:-1}
+      DJANGO_COLLECTSTATIC: ${DJANGO_COLLECTSTATIC:-0}
+      DB_ENGINE: postgres
+      DB_NAME: ${POSTGRES_DB:-resume_builder}
+      DB_USER: ${POSTGRES_USER:-resume_builder}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-resume_builder}
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: resume-builder-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-resume_builder}
+      POSTGRES_USER: ${POSTGRES_USER:-resume_builder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resume_builder}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
